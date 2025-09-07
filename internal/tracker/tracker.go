@@ -41,7 +41,7 @@ func (t *Tracker) printConnectionInfo(ctx context.Context) error {
 		return fmt.Errorf("failed to get network ID: %w", err)
 	}
 
-	fmt.Printf("🔗 Connected to Ethereum network\n")
+	fmt.Printf("🔗 Connected to Ethereum network (%s)\n", t.config.Network)
 	fmt.Printf("   Chain ID: %s\n", chainID.String())
 	fmt.Printf("   USDC Address: %s\n", t.config.USDCAddress)
 	fmt.Printf("   Block Interval: %v\n\n", t.blockInterval)
@@ -83,7 +83,7 @@ func (t *Tracker) processCurrentBlock(ctx context.Context) error {
 
 	fmt.Printf("   Total transactions: %d\n", len(receipts))
 
-	usdcTxs := usdc.MapUSDCTxs(receipts)
+	usdcTxs := usdc.MapUSDCTxs(receipts, t.config.USDCAddress)
 	t.displayUSDCTransactions(usdcTxs, blockNumber)
 
 	return nil

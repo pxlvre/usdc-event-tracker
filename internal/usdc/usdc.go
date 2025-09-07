@@ -17,8 +17,8 @@ func NewAddress(hexAddress string) common.Address {
 }
 
 // MapUSDCTxs filters receipts to find only those that interact with USDC
-func MapUSDCTxs(receipts []*types.Receipt) []*types.Receipt {
-	return FilterByAddress(receipts, "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238")
+func MapUSDCTxs(receipts []*types.Receipt, usdcAddress string) []*types.Receipt {
+	return FilterByAddress(receipts, usdcAddress)
 }
 
 // FilterByAddress filters receipts by a specific contract address

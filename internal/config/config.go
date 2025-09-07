@@ -1,3 +1,4 @@
+// Package config provides configuration management for the USDC event tracker
 package config
 
 import (
@@ -20,13 +21,19 @@ const (
 	USDCOptimism  = "0x0b2c639c533813f4aa9d7837caf62653d097ff85"
 )
 
+// Config holds the application configuration
 type Config struct {
-	WebhookURL      string
-	BlockInterval   time.Duration
-	USDCAddress     string
-	Network         string
+	WebhookURL    string
+	BlockInterval time.Duration
+	USDCAddress   string
+	Network       string
+	Sink          []string
 }
 
+// Load reads configuration from environment variables and returns a Config instance.
+// It loads from .env file if present, otherwise uses system environment variables.
+// Required: WEBHOOK_URL must be set.
+// Defaults: NETWORK=sepolia, SINKS=console if not specified.
 func Load() *Config {
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: .env file not found, using environment variables")
@@ -64,10 +71,34 @@ func Load() *Config {
 		log.Fatalf("Unsupported network: %s. Supported networks: mainnet, sepolia, arbitrum, avalanche, linea, polygon, optimism", network)
 	}
 
+	// Parse sinks from environment (comma-separated)
+	// Supported: console, sql, mongodb, kafka, filesystem
+	var sinks []string
+	sinksEnv := os.Getenv("SINKS")
+	if sinksEnv == "" {
+		// Default to console if no sinks specified
+		sinks = []string{"console"}
+	} else {
+		for _, sink := range strings.Split(sinksEnv, ",") {
+			trimmed := strings.TrimSpace(strings.ToLower(sink))
+			switch trimmed {
+			case "console", "sql", "mongodb", "kafka", "filesystem":
+				sinks = append(sinks, trimmed)
+			default:
+				log.Printf("Warning: Unsupported sink '%s'. Supported sinks: console, sql, mongodb, kafka, filesystem", trimmed)
+			}
+		}
+		// If no valid sinks were added, default to console
+		if len(sinks) == 0 {
+			sinks = []string{"console"}
+		}
+	}
+
 	return &Config{
 		WebhookURL:    webhookURL,
 		BlockInterval: 12 * time.Second, // Ethereum block time
 		USDCAddress:   usdcAddress,
 		Network:       network,
+		Sink:          sinks,
 	}
 }

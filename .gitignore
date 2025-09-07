@@ -27,6 +27,7 @@ go.work.sum
 *.swp
 *.swo
 *~
+.claude
 
 # Binary
 usdc-event-tracker
@@ -34,3 +35,7 @@ usdc-event-tracker
 # OS
 .DS_Store
 Thumbs.db
+
+# Temporary files and full implementations
+/tmp/
+*.tmp

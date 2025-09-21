@@ -8,7 +8,7 @@ A Go application that monitors Ethereum blockchain for USDC token transactions o
 - USDC transaction filtering
 - Event detection (Transfer, Approval)
 - Graceful shutdown handling
-- Structured logging with emojis for better readability
+- Structured logging for better readability
 
 ## Project Structure
 

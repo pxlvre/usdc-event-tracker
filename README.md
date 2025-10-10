@@ -4,11 +4,11 @@ A high-performance blockchain event tracker specifically designed to monitor USD
 
 ## Features
 
-### 🔗 Multi-Network Support
-- **Ethereum Mainnet** - Production USDC tracking
-- **Sepolia Testnet** - Development and testing  
-- **Layer 2 Networks**: Arbitrum, Optimism, Polygon
-- **Alternative Networks**: Avalanche C-Chain, Linea
+- Real-time block monitoring
+- USDC transaction filtering
+- Event detection (Transfer, Approval)
+- Graceful shutdown handling
+- Structured logging for better readability
 
 ### 📊 Flexible Data Sinks
 - **Console** - Real-time console output with formatted display
@@ -312,8 +312,15 @@ Each skeleton includes:
 3. Test your implementation thoroughly
 4. Submit a pull request
 
-The full implementations in `/tmp/` provide complete reference code for all features including error handling, batch processing, and production optimizations.
 
 ## License
 
-MIT License - see LICENSE file for details.
+The tracker displays:
+- Connection information
+- Block processing details
+- USDC transactions with:
+  - Transaction hash
+  - Status (success/failure)
+  - Gas usage
+  - Event types (Transfer/Approval)
+  - Event details (from/to addresses)

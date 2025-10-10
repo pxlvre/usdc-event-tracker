@@ -1,27 +1,26 @@
+// Package usdc provides USDC-specific utilities and filters
 package usdc
 
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"usdc-event-tracker/internal/erc20"
 )
 
-// Event signatures for USDC contract
-const (
-	TransferEventSig = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
-	ApprovalEventSig = "0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"
-)
-
-// NewAddress creates a USDC contract address from a hex string
+// NewAddress converts a hex string to an Ethereum address.
+// The hex string can be with or without the 0x prefix.
 func NewAddress(hexAddress string) common.Address {
 	return common.HexToAddress(hexAddress)
 }
 
-// MapUSDCTxs filters receipts to find only those that interact with USDC
-func MapUSDCTxs(receipts []*types.Receipt) []*types.Receipt {
-	return FilterByAddress(receipts, "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238")
+// MapUSDCTxs filters a slice of receipts to return only those that interact with the USDC contract.
+// It uses the provided USDC contract address to identify relevant transactions.
+func MapUSDCTxs(receipts []*types.Receipt, usdcAddress string) []*types.Receipt {
+	return FilterByAddress(receipts, usdcAddress)
 }
 
-// FilterByAddress filters receipts by a specific contract address
+// FilterByAddress filters receipts to return only those containing logs from a specific contract address.
+// This is a generic filter that can be used for any contract, not just USDC.
 func FilterByAddress(receipts []*types.Receipt, contractAddress string) []*types.Receipt {
 	addr := NewAddress(contractAddress)
 	filtered := make([]*types.Receipt, 0)
@@ -35,7 +34,8 @@ func FilterByAddress(receipts []*types.Receipt, contractAddress string) []*types
 	return filtered
 }
 
-// hasLogsFromAddress checks if a receipt contains logs from a specific address
+// hasLogsFromAddress checks if a receipt contains any logs from the specified address.
+// Returns true if at least one log matches the address, false otherwise.
 func hasLogsFromAddress(receipt *types.Receipt, address common.Address) bool {
 	for _, log := range receipt.Logs {
 		if log.Address == address {
@@ -45,14 +45,12 @@ func hasLogsFromAddress(receipt *types.Receipt, address common.Address) bool {
 	return false
 }
 
-// GetEventType returns a human-readable event type from a log topic
+// GetEventType identifies the ERC20 event type from a log topic hash.
+// Returns the event name (e.g., "Transfer", "Approval") or "Unknown" if not recognized.
 func GetEventType(topic common.Hash) string {
-	switch topic.Hex() {
-	case TransferEventSig:
-		return "Transfer"
-	case ApprovalEventSig:
-		return "Approval"
-	default:
-		return "Unknown"
+	event, found := erc20.GetEventBySignature(topic.Hex())
+	if found {
+		return string(event)
 	}
+	return "Unknown"
 }

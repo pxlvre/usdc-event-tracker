@@ -1,3 +1,4 @@
+// Package tx provides transaction and receipt retrieval utilities
 package tx
 
 import (
@@ -9,7 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-// GetAllTransactionInBlock retrieves all transaction receipts for a given block
+// GetAllTransactionInBlock retrieves all transaction receipts for a given block number.
+// It uses the BlockReceipts method for efficient batch retrieval.
+// Returns an empty slice if the block contains no transactions.
 func GetAllTransactionInBlock(client *ethclient.Client, ctx context.Context, blockNumber uint64) ([]*types.Receipt, error) {
 	blockNum := rpc.BlockNumber(blockNumber)
 	

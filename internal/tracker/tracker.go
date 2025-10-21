@@ -3,15 +3,16 @@ package tracker
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"usdc-event-tracker/internal/config"
+	"usdc-event-tracker/internal/logging"
 	"usdc-event-tracker/internal/sinks"
 	"usdc-event-tracker/internal/sinks/console"
+	"usdc-event-tracker/internal/sinks/elasticsearch"
 	"usdc-event-tracker/internal/sinks/fs"
 	"usdc-event-tracker/internal/tx"
 	"usdc-event-tracker/internal/usdc"
@@ -23,6 +24,7 @@ type Tracker struct {
 	config        *config.Config
 	blockInterval time.Duration
 	sinkManager   *sinks.Manager
+	logger        *logging.Logger
 }
 
 // New creates a new Tracker instance
@@ -32,6 +34,7 @@ func New(client *ethclient.Client, cfg *config.Config) *Tracker {
 		config:        cfg,
 		blockInterval: cfg.BlockInterval,
 		sinkManager:   sinks.NewManager(),
+		logger:        logging.GetLogger("tracker"),
 	}
 	
 	// Initialize sinks based on configuration
@@ -48,13 +51,16 @@ func (t *Tracker) initializeSinks(cfg *config.Config) {
 			t.sinkManager.AddSink(console.New(cfg.USDCAddress))
 		case "sql":
 			// TODO: Add SQL sink implementation
-			log.Printf("SQL sink not yet implemented")
+			t.logger.Warn("SQL sink not yet implemented", map[string]interface{}{"sink": "sql"})
 		case "mongodb":
 			// TODO: Add MongoDB sink implementation
-			log.Printf("MongoDB sink not yet implemented")
+			t.logger.Warn("MongoDB sink not yet implemented", map[string]interface{}{"sink": "mongodb"})
 		case "kafka":
 			// TODO: Add Kafka sink implementation
-			log.Printf("Kafka sink not yet implemented")
+			t.logger.Warn("Kafka sink not yet implemented", map[string]interface{}{"sink": "kafka"})
+		case "elasticsearch":
+			esConfig := elasticsearch.NewConfig()
+			t.sinkManager.AddSink(elasticsearch.New(esConfig))
 		case "filesystem":
 			// Configure filesystem sink from environment
 			fsConfig := fs.Config{
@@ -104,27 +110,21 @@ func (t *Tracker) Start(ctx context.Context) error {
 func (t *Tracker) printConnectionInfo(ctx context.Context) error {
 	chainID, err := t.client.NetworkID(ctx)
 	if err != nil {
+		t.logger.Error("Failed to get network ID", err)
 		return fmt.Errorf("failed to get network ID: %w", err)
 	}
 
-	fmt.Printf("🔗 Connected to Ethereum network (%s)\n", t.config.Network)
-	fmt.Printf("   Chain ID: %s\n", chainID.String())
-	fmt.Printf("   USDC Address: %s\n", t.config.USDCAddress)
-	fmt.Printf("   Block Interval: %v\n", t.blockInterval)
+	t.logger.LogConnection(t.config.Network, chainID.String(), t.config.USDCAddress, t.config.WebhookURL)
 
 	return nil
 }
 
 // printActiveSinks displays configured sinks
 func (t *Tracker) printActiveSinks() {
-	fmt.Printf("📤 Active sinks: ")
-	for i, sink := range t.config.Sink {
-		if i > 0 {
-			fmt.Printf(", ")
-		}
-		fmt.Printf("%s", sink)
-	}
-	fmt.Printf("\n\n")
+	t.logger.Info("Active sinks initialized", map[string]interface{}{
+		"sink_count": len(t.config.Sink),
+		"sinks":      t.config.Sink,
+	})
 }
 
 // monitorBlocks continuously monitors new blocks
@@ -135,7 +135,7 @@ func (t *Tracker) monitorBlocks(ctx context.Context) error {
 			return ctx.Err()
 		default:
 			if err := t.processCurrentBlock(ctx); err != nil {
-				log.Printf("Error processing block: %v", err)
+				t.logger.Error("Error processing block", err)
 			}
 			time.Sleep(t.blockInterval)
 		}
@@ -146,40 +146,55 @@ func (t *Tracker) monitorBlocks(ctx context.Context) error {
 func (t *Tracker) processCurrentBlock(ctx context.Context) error {
 	blockNumber, err := t.client.BlockNumber(ctx)
 	if err != nil {
+		t.logger.Error("Failed to get block number", err)
 		return fmt.Errorf("failed to get block number: %w", err)
-	}
-
-	// Only log to console if console sink is active
-	if t.sinkManager.HasSink("console") {
-		fmt.Printf("📦 Processing block #%d\n", blockNumber)
 	}
 
 	receipts, err := tx.GetAllTransactionInBlock(t.client, ctx, blockNumber)
 	if err != nil {
+		t.logger.Error("Failed to get receipts for block", err, map[string]interface{}{
+			"block_number": blockNumber,
+		})
 		return fmt.Errorf("failed to get receipts for block %d: %w", blockNumber, err)
 	}
 
-	if len(receipts) == 0 {
-		if t.sinkManager.HasSink("console") {
-			fmt.Printf("   No transactions in this block\n\n")
-		}
-		return nil
-	}
+	t.logger.LogBlockProcessing(blockNumber, len(receipts))
 
-	if t.sinkManager.HasSink("console") {
-		fmt.Printf("   Total transactions: %d\n", len(receipts))
+	if len(receipts) == 0 {
+		return nil
 	}
 
 	// Filter for USDC transactions
 	usdcTxs := usdc.MapUSDCTxs(receipts, t.config.USDCAddress)
 	
+	// Log USDC transactions found
+	if len(usdcTxs) > 0 {
+		t.logger.Info("USDC transactions found", map[string]interface{}{
+			"block_number":    blockNumber,
+			"total_txs":       len(receipts),
+			"usdc_txs":        len(usdcTxs),
+			"usdc_percentage": float64(len(usdcTxs)) / float64(len(receipts)) * 100,
+		})
+	}
+	
 	// Convert to sink events
 	events := t.convertToEvents(usdcTxs, blockNumber)
 	
 	// Send to all configured sinks
+	start := time.Now()
 	if err := t.sinkManager.Write(ctx, events); err != nil {
+		t.logger.Error("Failed to write to sinks", err, map[string]interface{}{
+			"block_number": blockNumber,
+			"event_count":  len(events),
+		})
 		return fmt.Errorf("failed to write to sinks: %w", err)
 	}
+	
+	t.logger.Info("Sink write completed", map[string]interface{}{
+		"block_number": blockNumber,
+		"event_count":  len(events),
+		"duration_ms":  time.Since(start).Milliseconds(),
+	})
 
 	return nil
 }

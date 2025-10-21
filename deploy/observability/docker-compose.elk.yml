@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: usdc-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - elk
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: usdc-logstash
+    ports:
+      - "5044:5044"
+      - "5000:5000/tcp"
+      - "5000:5000/udp"
+      - "9600:9600"
+    environment:
+      LS_JAVA_OPTS: "-Xmx512m -Xms512m"
+    volumes:
+      - ./logstash/config:/usr/share/logstash/config:ro
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    networks:
+      - elk
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: logstash -f /usr/share/logstash/pipeline/usdc-events.conf
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: usdc-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: ""
+      ELASTICSEARCH_PASSWORD: ""
+    volumes:
+      - ./kibana/config:/usr/share/kibana/config:ro
+    networks:
+      - elk
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  # Optional: Filebeat for collecting logs from files
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.11.0
+    container_name: usdc-filebeat
+    user: root
+    volumes:
+      - ./filebeat/config/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ../../logs:/usr/share/filebeat/logs:ro
+    networks:
+      - elk
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: filebeat -e -strict.perms=false
+
+volumes:
+  elasticsearch_data:
+    driver: local
+
+networks:
+  elk:
+    driver: bridge

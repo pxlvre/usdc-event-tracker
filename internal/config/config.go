@@ -72,7 +72,7 @@ func Load() *Config {
 	}
 
 	// Parse sinks from environment (comma-separated)
-	// Supported: console, sql, mongodb, kafka, filesystem
+	// Supported: console, sql, mongodb, kafka, filesystem, elasticsearch
 	var sinks []string
 	sinksEnv := os.Getenv("SINKS")
 	if sinksEnv == "" {
@@ -82,10 +82,10 @@ func Load() *Config {
 		for _, sink := range strings.Split(sinksEnv, ",") {
 			trimmed := strings.TrimSpace(strings.ToLower(sink))
 			switch trimmed {
-			case "console", "sql", "mongodb", "kafka", "filesystem":
+			case "console", "sql", "mongodb", "kafka", "filesystem", "elasticsearch":
 				sinks = append(sinks, trimmed)
 			default:
-				log.Printf("Warning: Unsupported sink '%s'. Supported sinks: console, sql, mongodb, kafka, filesystem", trimmed)
+				log.Printf("Warning: Unsupported sink '%s'. Supported sinks: console, sql, mongodb, kafka, filesystem, elasticsearch", trimmed)
 			}
 		}
 		// If no valid sinks were added, default to console

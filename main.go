@@ -3,24 +3,35 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"usdc-event-tracker/internal/config"
+	"usdc-event-tracker/internal/logging"
 	"usdc-event-tracker/internal/tracker"
 	"usdc-event-tracker/internal/ws"
 )
 
 func main() {
+	// Initialize structured logging
+	logging.Init("main")
+	logger := logging.GetLogger("main")
+
 	// Load configuration
 	cfg := config.Load()
+
+	logger.Info("Starting USDC Event Tracker", map[string]interface{}{
+		"network":     cfg.Network,
+		"sinks":       cfg.Sink,
+		"usdc_address": cfg.USDCAddress,
+	})
 
 	// Create Ethereum client
 	client, err := ws.NewClient(cfg.WebhookURL)
 	if err != nil {
-		log.Fatalf("Failed to create Ethereum client: %v", err)
+		logger.Error("Failed to create Ethereum client", err)
+		os.Exit(1)
 	}
 	defer client.Close()
 
@@ -37,17 +48,17 @@ func main() {
 
 	go func() {
 		<-sigChan
-		log.Println("\n📛 Shutting down gracefully...")
+		logger.Info("Shutdown signal received, stopping gracefully")
 		cancel()
 	}()
 
 	// Start tracking
-	log.Println("🚀 Starting USDC Event Tracker...")
 	if err := t.Start(ctx); err != nil {
 		if !errors.Is(err, context.Canceled) {
-			log.Fatalf("Tracker error: %v", err)
+			logger.Error("Tracker error", err)
+			os.Exit(1)
 		}
 	}
 
-	log.Println("✅ Tracker stopped")
+	logger.Info("Tracker stopped successfully")
 }

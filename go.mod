@@ -3,6 +3,7 @@ module usdc-event-tracker
 go 1.24.4
 
 require (
+	github.com/elastic/go-elasticsearch/v8 v8.11.0
 	github.com/ethereum/go-ethereum v1.16.5
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9

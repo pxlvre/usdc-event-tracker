@@ -6,7 +6,7 @@ require (
 	github.com/elastic/go-elasticsearch/v8 v8.19.1
 	github.com/ethereum/go-ethereum v1.16.8
 	github.com/joho/godotenv v1.5.1
-	github.com/lib/pq v1.10.9
+	github.com/lib/pq v1.11.1
 	github.com/segmentio/kafka-go v0.4.50
 	go.mongodb.org/mongo-driver v1.17.8
 )

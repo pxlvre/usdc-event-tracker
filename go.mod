@@ -7,7 +7,7 @@ require (
 	github.com/ethereum/go-ethereum v1.17.1
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.11.2
-	github.com/segmentio/kafka-go v0.4.50
+	github.com/segmentio/kafka-go v0.4.51
 	go.mongodb.org/mongo-driver v1.17.9
 )
 
